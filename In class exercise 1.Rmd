@@ -1,0 +1,94 @@
+---
+title: "Project 2"
+author: "Nick Hauenstein"
+date: "2026-10-20"
+output: pdf_document
+echo: false
+warning: false
+message: false
+---
+
+### Introduction
+
+For this project we are taking a look at the winnebago data again from the TSA package. The data contains monthly unit sales of recreational vehicles from Winnebago, Inc., from November 1966 through February 1972. My objective with the data is to create a time series model that can be used to analyze the dataset. One problem though is it is not stationary so using difference and making an ARIMA model is going to be needed.
+
+### Methodology
+
+The method I am using to create my model is an ARIMA model. My original time series needs to be made stationary so I will plot the original time series and check for constant mean and variance. If not I will use differences to make my time series stationary. Once it is stationary I will fit a few different ARIMA models based on the ACF and PACF. An ARIMA model is an integration between an AR model and a MA model. The equation for the AR part is Yt = phi(1)Yt-1 + phi(k)Yt-k + epsilon(t) and the MA part is Yt = epsilon(t) - theta(1)e(t-1) - theta(q)e(t-q). The ARIMA model is a combination of these two so Wt = phi(1)Wt-1 + phi(k)Wt-k + e(t) - theta(1)e(t-1) - theta(q)e(t-q). What will help me choose ARIMA models to try will be the plot of the ACF and PACF. Based on these plots I will have better guesses at what model will work. For each of my models I will take a look at the significance of the terms and compare all the AIC and BIC to choose the best one. Once I pick a model I then have to check the assumptions for the residuals. These are zero mean, constant variance, independence, and normality.
+
+### EDA
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+library(lmtest)
+library(TSA)
+library(astsa)
+data(winnebago)
+Win <- winnebago
+```
+
+**Original Data Plot**
+
+```{r,echo=FALSE}
+plot(Win)
+```
+
+So the original data is not stationary. There is clearly a positive trend in the data violating the constant mean assumption.
+
+```{r,echo=FALSE}
+acf(Win)
+```
+
+The ACF as expected looks awful since it is not stationary. There is a heavy dependence on time with the data so we have to either use regression or the difference to make it stationary.
+
+**Making Data Stationary**
+
+To make it stationary I am choosing to use difference to make my data stationary first and then finding the model to fit.
+
+```{r,echo=FALSE}
+X <- diff(Win,differences = 1)
+plot(X)
+acf(X)
+```
+
+Using the difference we now have stationary data. The ACF appears to have a cutoff which is what we see in MA. There might be a curve pattern similar to a sin curve. For an MA model we would expect to see a cutoff so I think MA might be practical. Lets look at the PACF also.
+
+```{r,echo=FALSE,message=FALSE,results='hide'}
+acf2(X)
+```
+
+**Fitting Models**
+
+Looking at these two together it seems as though they both are very similar. Lets take a look at a handful of models and see which we like. The order of our models is ARIMA(p,d,q) where p is the AR part, d is the difference, and q is the MA factor.
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE,results='hide'}
+model1 <-arima(x = Win,order = c(0,1,0))
+model2 <- arima(x = Win,order = c(0,1,1))
+coeftest(model2)
+model3 <- arima(x = Win,order = c(0,1,2))
+coeftest(model3)
+model4 <- arima(x = Win,order = c(1,1,1))
+coeftest(model4)
+AIC(model1,model2,model3,model4)
+BIC(model1,model2,model3,model4)
+
+```
+
+The model that had the lowest AIC and BIC was my ARIMA(0,1,1) model. Our model will be (1-B)Yt = e(t) + theta \*e(t-1). This makes the most sense because of the look of my ACF and PAC
+
+**Residual Analysis**
+
+Now that we have our best model lets look at our residuals and see if they are meet the assumptions.
+
+```{r,echo=FALSE,message=FALSE,results='hide'}
+par(mfrow=c(2,2))
+acf2(residuals(model2))
+tsdiag(model2)
+qqnorm(resid(model2))
+qqline(resid(model2))
+```
+
+With our plots the ACF for the residuals are mostly in the band so we meet the independence criteria. The plot of the residuals appear to show no sort of problems with patterns and follow a constant band. The QQ plot shows us normality if the points follow the qqline. In our plot our residuals follow normal distribution with only a couple off the line in the beginning and very end but not alarming at all.
+
+### Conclusion
+
+The goal of this analysis was to examine monthly sales data for Winnebago Inc. and identify an appropriate time-series model. After examining the data and comparing potential models, an ARIMA(0,1,1) model was selected. This model uses first differencing to account for nonstationarity and a moving average term to model the relationship between changes in sales and previous random errors. The analysis. Overall, ARIMA(0,1,1) was our favorite and looking at the residual analysis it was a pretty good fit.
